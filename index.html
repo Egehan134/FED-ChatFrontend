@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebRTC Text Chat</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+        }
+        #chat-container {
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        #messages {
+            height: 400px;
+            overflow-y: auto;
+            margin-bottom: 15px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background-color: #fafafa;
+        }
+        .message {
+            margin-bottom: 12px;
+            padding: 8px 12px;
+            border-radius: 18px;
+            max-width: 70%;
+            word-wrap: break-word;
+        }
+        .received {
+            background-color: #e3f2fd;
+            margin-right: auto;
+        }
+        .sent {
+            background-color: #dcf8c6;
+            margin-left: auto;
+            text-align: right;
+        }
+        #message-form {
+            display: flex;
+            gap: 10px;
+        }
+        #message-input {
+            flex-grow: 1;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 20px;
+            outline: none;
+        }
+        #message-input:focus {
+            border-color: #4a90e2;
+        }
+        button {
+            padding: 10px 20px;
+            background-color: #4a90e2;
+            color: white;
+            border: none;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #357ab8;
+        }
+        #status {
+            text-align: center;
+            color: #666;
+            margin-bottom: 15px;
+            font-style: italic;
+        }
+        .timestamp {
+            font-size: 0.8em;
+            color: #666;
+            margin-top: 4px;
+        }
+    </style>
+</head>
+<body>
+    <h1>WebRTC Text Chat</h1>
+    <div id="chat-container">
+        <div id="status">Connecting to server...</div>
+        <div id="messages"></div>
+        <form id="message-form" onsubmit="sendMessage(); return false;">
+            <input type="text" id="message-input" placeholder="Type your message..." autocomplete="off">
+            <button type="submit">Send</button>
+        </form>
+    </div>
+
+    <script>
+        const messagesDiv = document.getElementById('messages');
+        const messageInput = document.getElementById('message-input');
+        const statusDiv = document.getElementById('status');
+        
+        // WebSocket connection
+        const signalingSocket = new WebSocket("https://signalingserver-ek8j.onrender.com");
+        
+        signalingSocket.onopen = () => {
+            statusDiv.textContent = "Connected to server. Waiting for peer...";
+            statusDiv.style.color = "#4CAF50";
+        };
+        
+        signalingSocket.onclose = () => {
+            statusDiv.textContent = "Disconnected from server. Refresh to reconnect.";
+            statusDiv.style.color = "#F44336";
+        };
+        
+        signalingSocket.onerror = (error) => {
+            statusDiv.textContent = "Connection error: " + error.message;
+            statusDiv.style.color = "#F44336";
+        };
+        
+        signalingSocket.onmessage = (event) => {
+            try {
+                const data = JSON.parse(event.data);
+                
+                if (data.type === 'chat') {
+                    addMessage(data.sender || 'Peer', data.message, 'received');
+                } else if (data.type === 'system') {
+                    addSystemMessage(data.message);
+                }
+            } catch (e) {
+                console.error("Error parsing message:", e);
+            }
+        };
+        
+        function sendMessage() {
+            const message = messageInput.value.trim();
+            if (message && signalingSocket.readyState === WebSocket.OPEN) {
+                const messageObj = {
+                    type: 'chat',
+                    message: message,
+                    timestamp: new Date().toISOString()
+                };
+                
+                signalingSocket.send(JSON.stringify(messageObj));
+                
+                addMessage('You', message, 'sent');
+                
+                messageInput.value = '';
+            }
+        }
+        
+        function addMessage(sender, message, type) {
+            const messageElement = document.createElement('div');
+            messageElement.classList.add('message', type);
+            
+            const timestamp = new Date().toLocaleTimeString();
+            
+            messageElement.innerHTML = `
+                <strong>${sender}:</strong> ${message}
+                <div class="timestamp">${timestamp}</div>
+            `;
+            
+            messagesDiv.appendChild(messageElement);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+        
+        function addSystemMessage(message) {
+            const systemElement = document.createElement('div');
+            systemElement.classList.add('message', 'system');
+            systemElement.textContent = message;
+            systemElement.style.textAlign = 'center';
+            systemElement.style.fontStyle = 'italic';
+            systemElement.style.color = '#666';
+            messagesDiv.appendChild(systemElement);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+        
+        messageInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        });
+    </script>
+</body>
+</html>
