@@ -158,51 +158,53 @@
         };
         
         socket.onmessage = (event) => {
-            try {
-                const data = JSON.parse(event.data);
+    try {
+        const data = JSON.parse(event.data);
+        
+        switch(data.type) {
+            case "connection":
+                clientId = data.clientId;
+                addSystemMessage("Your ID: " + data.clientId.slice(0, 8));
+                break;
                 
-                switch(data.type) {
-                    case "connection":
-                        clientId = data.clientId;
-                        addSystemMessage("Your ID: " + data.clientId.slice(0, 8));
-                        break;
-                        
-                    case "chat":
-                        addMessage(
-                            data.senderId === clientId ? 'You' : 'User-' + data.senderId.slice(0, 8),
-                            data.message,
-                            data.senderId === clientId ? 'sent' : 'received',
-                            new Date(data.timestamp)
-                        );
-                        break;
-                        
-                    case "presence":
-                        const action = data.event === "join" ? "joined" : "left";
-                        addSystemMessage(`User-${data.clientId.slice(0, 8)} ${action} the chat`);
-                        break;
+            case "chat":
+                if (data.senderId !== clientId) {
+                    addMessage(
+                        'User-' + data.senderId.slice(0, 8),
+                        data.message,
+                        'received',
+                        new Date(data.timestamp)
+                    );
                 }
-            } catch (error) {
-                console.error("Message parse error:", error);
-            }
-        };
+                break;
+                
+            case "presence":
+                const action = data.event === "join" ? "joined" : "left";
+                addSystemMessage(`User-${data.clientId.slice(0, 8)} ${action} the chat`);
+                break;
+        }
+    } catch (error) {
+        console.error("Message parse error:", error);
+    }
+};
         
         // Functions
         function sendMessage() {
             const message = messageInput.value.trim();
-            if (message && socket.readyState === WebSocket.OPEN) {
-                // Kendi mesajını hemen göster
-                addMessage('You', message, 'sent', new Date());
-                
-                // Sunucuya gönder
-                socket.send(JSON.stringify({
-                    type: "chat",
-                    message: message,
-                    timestamp: Date.now()
-                }));
-                
-                messageInput.value = '';
-            }
-        }
+                if (message && socket.readyState === WebSocket.OPEN) {
+
+                 addMessage('You', message, 'sent', new Date());
+        
+
+                 socket.send(JSON.stringify({
+                     type: "chat",
+                     message: message,
+                     timestamp: Date.now()
+        }));
+        
+        messageInput.value = '';
+    }
+}
         
         function addMessage(sender, message, type, timestamp) {
             const messageElement = document.createElement('div');
